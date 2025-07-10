@@ -1,6 +1,7 @@
 package org.example.online_banking.controller;
 
 import jakarta.transaction.Transactional;
+import org.example.online_banking.dto.JwtResponse;
 import org.example.online_banking.dto.LoginRequest;
 import org.example.online_banking.dto.RegisterRequest;
 import org.example.online_banking.dto.RegisterResponse;
@@ -8,6 +9,7 @@ import org.example.online_banking.model.Customer;
 import org.example.online_banking.model.User;
 import org.example.online_banking.repository.CustomerRepository;
 import org.example.online_banking.repository.UserRepository;
+import org.example.online_banking.security.JwtUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,9 +33,10 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         return userRepository.findByUsername(request.getUsername())
                 .map(user -> {
-                    if (user.getPasswordHash().equals(request.getPassword())) {
+                    if (user.getPasswordHash().equals(request.getPassword())) { // use hash in real apps
                         user.setLastLogin(new Timestamp(System.currentTimeMillis()));
-                        return ResponseEntity.ok("Login successful");
+                        String token = JwtUtil.generateToken(user.getUsername());
+                        return ResponseEntity.ok(new JwtResponse(token));
                     } else {
                         return ResponseEntity.status(401).body("Invalid password");
                     }
@@ -41,8 +44,10 @@ public class AuthController {
                 .orElse(ResponseEntity.status(404).body("User not found"));
     }
 
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+
         Customer customer = new Customer();
         customer.setFullName(request.getFullName());
         customer.setEmail(request.getEmail());
@@ -52,18 +57,26 @@ public class AuthController {
         customer.setNationalId(request.getNationalId());
         Customer savedCustomer = customerRepository.save(customer);
 
-        String username = "user" + savedCustomer.getCustomerId();
+
+        String[] nameParts = savedCustomer.getFullName().trim().toLowerCase().split("\\s+");
+        String baseName = nameParts.length >= 2
+                ? nameParts[0] + nameParts[1]
+                : nameParts[0];
+
+        String username = baseName + savedCustomer.getCustomerId();
+
         String password = generateRandomPassword();
 
         User user = new User();
         user.setCustomerId(savedCustomer.getCustomerId());
         user.setUsername(username);
-        user.setPasswordHash(password);
-        user.setRole(User.Role.CUSTOMER);
+        user.setPasswordHash(password); // Hash in production
+        user.setRole(User.Role.customer);
         userRepository.save(user);
 
         return ResponseEntity.ok(new RegisterResponse(username, password));
     }
+
 
     private String generateRandomPassword() {
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

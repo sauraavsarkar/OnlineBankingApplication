@@ -22,12 +22,12 @@ public class User {
     private String passwordHash; // Store hashed password
 
     @Enumerated(EnumType.STRING)
-    private Role role = Role.CUSTOMER;
+    private Role role = Role.customer;
 
     private Timestamp lastLogin;
 
     public enum Role {
-        CUSTOMER, ADMIN
+        customer, admin
     }
 
     public Integer getUserId() {
